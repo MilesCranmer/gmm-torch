@@ -57,6 +57,10 @@ class GaussianMixture(torch.nn.Module):
         assert self.covariance_type in ["full", "diag"]
         assert self.init_params in ["kmeans", "random"]
 
+        self.mu = None
+        self.var = None
+        self.pi = None
+
         self._init_params()
 
 
@@ -64,30 +68,54 @@ class GaussianMixture(torch.nn.Module):
         if self.mu_init is not None:
             assert self.mu_init.size() == (1, self.n_components, self.n_features), "Input mu_init does not have required tensor dimensions (1, %i, %i)" % (self.n_components, self.n_features)
             # (1, k, d)
-            self.mu = torch.nn.Parameter(self.mu_init, requires_grad=False)
+            if self.mu is not None:
+                self.mu.copy_(self.mu_init.to(self.mu.device))
+            else:
+                self.mu = torch.nn.Parameter(self.mu_init, requires_grad=False)
         else:
-            self.mu = torch.nn.Parameter(torch.randn(1, self.n_components, self.n_features), requires_grad=False)
+            if self.mu is not None:
+                self.mu.copy_(torch.randn(1, self.n_components, self.n_features, device=self.mu.device))
+            else:
+                self.mu = torch.nn.Parameter(torch.randn(1, self.n_components, self.n_features), requires_grad=False)
 
         if self.covariance_type == "diag":
             if self.var_init is not None:
                 # (1, k, d)
                 assert self.var_init.size() == (1, self.n_components, self.n_features), "Input var_init does not have required tensor dimensions (1, %i, %i)" % (self.n_components, self.n_features)
-                self.var = torch.nn.Parameter(self.var_init, requires_grad=False)
+                
+                if self.var is not None:
+                    self.var.copy_(self.var_init.to(self.var.device))
+                else:
+                    self.var = torch.nn.Parameter(self.var_init, requires_grad=False)
             else:
-                self.var = torch.nn.Parameter(torch.ones(1, self.n_components, self.n_features), requires_grad=False)
+                if self.var is not None:
+                    self.var.copy_(torch.ones(1, self.n_components, self.n_features, device=self.var.device))
+                else:
+                    self.var = torch.nn.Parameter(torch.ones(1, self.n_components, self.n_features), requires_grad=False)
         elif self.covariance_type == "full":
             if self.var_init is not None:
                 # (1, k, d, d)
                 assert self.var_init.size() == (1, self.n_components, self.n_features, self.n_features), "Input var_init does not have required tensor dimensions (1, %i, %i, %i)" % (self.n_components, self.n_features, self.n_features)
-                self.var = torch.nn.Parameter(self.var_init, requires_grad=False)
+                if self.var is not None:
+                    self.var.copy_(self.var_init.to(self.var_init.device))
+                else:
+                    self.var = torch.nn.Parameter(self.var_init, requires_grad=False)
             else:
-                self.var = torch.nn.Parameter(
-                    torch.eye(self.n_features).reshape(1, 1, self.n_features, self.n_features).repeat(1, self.n_components, 1, 1),
-                    requires_grad=False
-                )
+                if self.var is not None:
+                    self.var.copy_(
+                        torch.eye(self.n_features).reshape(1, 1, self.n_features, self.n_features, device=self.var.device).repeat(1, self.n_components, 1, 1),
+                    )
+                else:
+                    self.var = torch.nn.Parameter(
+                        torch.eye(self.n_features).reshape(1, 1, self.n_features, self.n_features).repeat(1, self.n_components, 1, 1),
+                        requires_grad=False
+                    )
 
         # (1, k, 1)
-        self.pi = torch.nn.Parameter(torch.Tensor(1, self.n_components, 1), requires_grad=False).fill_(1. / self.n_components)
+        if self.pi is not None:
+            self.pi.fill_(1. / self.n_components)
+        else:
+            self.pi = torch.nn.Parameter(torch.Tensor(1, self.n_components, 1), requires_grad=False).fill_(1. / self.n_components)
         self.params_fitted = False
 
 
