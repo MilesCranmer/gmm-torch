@@ -103,7 +103,7 @@ class GaussianMixture(torch.nn.Module):
             else:
                 if self.var is not None:
                     self.var.copy_(
-                        torch.eye(self.n_features).reshape(1, 1, self.n_features, self.n_features, device=self.var.device).repeat(1, self.n_components, 1, 1),
+                        torch.eye(self.n_features, device=self.var.device).reshape(1, 1, self.n_features, self.n_features).repeat(1, self.n_components, 1, 1),
                     )
                 else:
                     self.var = torch.nn.Parameter(
